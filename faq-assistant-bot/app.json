@@ -1,0 +1,18 @@
+{
+    "id": "575bdc73-da05-48ed-a7aa-0e643b07dac2",
+    "version": "0.0.1",
+    "requiredApiVersion": "^1.44.0",
+    "iconFile": "icon.png",
+    "author": {
+        "name": "rithvickkumar",
+        "homepage": "https://github.com/rithvickkr",
+        "support": "same"
+    },
+    "name": "FAQ Assistant Bot",
+    "nameSlug": "faq-assistant-bot",
+    "classFile": "FaqAssistantBotApp.ts",
+    "description": "Detects FAQs and provides answers",
+    "implements": [
+        "IPostMessageSent"
+    ]
+}
