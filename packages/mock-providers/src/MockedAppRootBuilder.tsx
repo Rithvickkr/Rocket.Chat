@@ -13,7 +13,7 @@ import { Emitter } from '@rocket.chat/emitter';
 import languages from '@rocket.chat/i18n/dist/languages';
 import { createFilterFromQuery } from '@rocket.chat/mongo-adapter';
 import type { Method, OperationParams, OperationResult, PathPattern, UrlParams } from '@rocket.chat/rest-typings';
-import type { Device, ModalContextValue, SubscriptionWithRoom, TranslationKey } from '@rocket.chat/ui-contexts';
+import type { Device, ModalContextValue, SettingsContextQuery, SubscriptionWithRoom, TranslationKey } from '@rocket.chat/ui-contexts';
 import {
 	AuthorizationContext,
 	ConnectionStatusContext,
@@ -24,6 +24,7 @@ import {
 	UserContext,
 	ActionManagerContext,
 	ModalContext,
+	UserPresenceContext,
 } from '@rocket.chat/ui-contexts';
 import type { VideoConfPopupPayload } from '@rocket.chat/ui-video-conf';
 import { VideoConfContext } from '@rocket.chat/ui-video-conf';
@@ -39,13 +40,6 @@ import { MockedDeviceContext } from './MockedDeviceContext';
 
 type Mutable<T> = {
 	-readonly [P in keyof T]: T[P];
-};
-
-export type SettingsContextQuery = {
-	readonly _id?: ISetting['_id'][] | RegExp;
-	readonly group?: ISetting['_id'];
-	readonly section?: string;
-	readonly tab?: ISetting['_id'];
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -84,6 +78,8 @@ export class MockedAppRootBuilder {
 		getStream: () => () => () => undefined,
 		uploadToEndpoint: () => Promise.reject(new Error('not implemented')),
 		callMethod: () => Promise.reject(new Error('not implemented')),
+		disconnect: () => Promise.reject(new Error('not implemented')),
+		reconnect: () => Promise.reject(new Error('not implemented')),
 		info: undefined,
 	};
 
@@ -117,6 +113,10 @@ export class MockedAppRootBuilder {
 		querySubscriptions: () => [() => () => undefined, () => this.subscriptions], // apply query and option
 		user: null,
 		userId: null,
+	};
+
+	private userPresence: ContextType<typeof UserPresenceContext> = {
+		queryUserData: (_uid) => ({ subscribe: () => () => undefined, get: () => undefined }),
 	};
 
 	private videoConf: ContextType<typeof VideoConfContext> = {
@@ -339,6 +339,14 @@ export class MockedAppRootBuilder {
 		return this;
 	}
 
+	withUsers(users: IUser[]): this {
+		users.forEach((user) => {
+			this.userPresence.queryUserData = (_uid) => ({ subscribe: () => () => undefined, get: () => user });
+		});
+
+		return this;
+	}
+
 	withSubscriptions(subscriptions: SubscriptionWithRoom[]): this {
 		this.subscriptions = subscriptions;
 
@@ -404,7 +412,6 @@ export class MockedAppRootBuilder {
 			const filter =
 				cache.get(query) ??
 				createFilterFromQuery({
-					...query,
 					...(query._id ? { _id: { $in: query._id } } : {}),
 				} as any);
 			cache.set(query, filter);
@@ -520,6 +527,7 @@ export class MockedAppRootBuilder {
 			router,
 			settings,
 			user,
+			userPresence,
 			videoConf,
 			i18n,
 			authorization,
@@ -609,36 +617,38 @@ export class MockedAppRootBuilder {
 														<AuthorizationContext.Provider value={authorization}>
 															{/* <EmojiPickerProvider>
 																<OmnichannelRoomIconProvider>
-																		<UserPresenceProvider>*/}
-															<ActionManagerContext.Provider
-																value={{
-																	generateTriggerId: () => '',
-																	emitInteraction: () => Promise.reject(new Error('not implemented')),
-																	getInteractionPayloadByViewId: () => undefined,
-																	handleServerInteraction: () => undefined,
-																	off: () => undefined,
-																	on: () => undefined,
-																	openView: () => undefined,
-																	disposeView: () => undefined,
-																	notifyBusy: () => undefined,
-																	notifyIdle: () => undefined,
-																}}
-															>
-																<VideoConfContext.Provider value={videoConf}>
-																	{/* <CallProvider>
+																	*/}
+															<UserPresenceContext.Provider value={userPresence}>
+																<ActionManagerContext.Provider
+																	value={{
+																		generateTriggerId: () => '',
+																		emitInteraction: () => Promise.reject(new Error('not implemented')),
+																		getInteractionPayloadByViewId: () => undefined,
+																		handleServerInteraction: () => undefined,
+																		off: () => undefined,
+																		on: () => undefined,
+																		openView: () => undefined,
+																		disposeView: () => undefined,
+																		notifyBusy: () => undefined,
+																		notifyIdle: () => undefined,
+																	}}
+																>
+																	<VideoConfContext.Provider value={videoConf}>
+																		{/* <CallProvider>
 																		<OmnichannelProvider> */}
-																	{wrappers.reduce<ReactNode>(
-																		(children, wrapper) => wrapper(children),
-																		<>
-																			{children}
-																			{modal.currentModal.component}
-																		</>,
-																	)}
-																	{/* </OmnichannelProvider>
+																		{wrappers.reduce<ReactNode>(
+																			(children, wrapper) => wrapper(children),
+																			<>
+																				{children}
+																				{modal.currentModal.component}
+																			</>,
+																		)}
+																		{/* </OmnichannelProvider>
 																	</CallProvider> */}
-																</VideoConfContext.Provider>
-															</ActionManagerContext.Provider>
-															{/* 		</UserPresenceProvider>
+																	</VideoConfContext.Provider>
+																</ActionManagerContext.Provider>
+															</UserPresenceContext.Provider>
+															{/*
 																</OmnichannelRoomIconProvider>
 															</EmojiPickerProvider>*/}
 														</AuthorizationContext.Provider>
